@@ -1,0 +1,95 @@
+"""
+Multi-Stage Polariton Solver: DNA Origami → Water → Serpentine Graphene → hBN
+With Fermi level tuning and dual-frequency support
+"""
+
+import numpy as np
+from scipy.fft import fft2, ifft2, fftfreq
+
+class MultiStagePolaritonSolver:
+    def __init__(self, config):
+        self.config = config
+        self.Nx, self.Ny = config.Nx, config.Ny
+        self.Lx, self.Ly = config.Lx, config.Ly
+        self.dx = self.Lx / self.Nx
+        self.dy = self.Ly / self.Ny
+        
+        self.x = np.linspace(-self.Lx/2, self.Lx/2, self.Nx)
+        self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
+        self.X, self.Y = np.meshgrid(self.x, self.y, indexing='xy')
+        
+        # Fourier space
+        self.kx = 2 * np.pi * fftfreq(self.Nx, d=self.dx)
+        self.ky = 2 * np.pi * fftfreq(self.Ny, d=self.dy)
+        self.KX, self.KY = np.meshgrid(self.kx, self.ky, indexing='xy')
+        self.K2 = self.KX**2 + self.KY**2
+        
+        self.k0 = 3.0
+        
+        # Geometry masks
+        self.dna_mask, self.transition_mask = self._create_dna_origami_zone()
+        self.water_mask = (self.X < 6.0) & (self.X > -14.0)
+        self.graphene_mask = self._create_serpentine_graphene()
+        self.hbn_mask = self._create_hbn_output_zone()
+        
+        print("Multi-Stage Polariton Solver initialized (DNA → Water → Graphene → hBN)")
+
+    def _create_dna_origami_zone(self):
+        """강화된 DNA Origami zone with dual bundle"""
+        mask = np.zeros((self.Ny, self.Nx))
+        trans = np.zeros((self.Ny, self.Nx))
+        
+        # Upper bundle (Input A)
+        mask |= (np.abs(self.X + 17.5) < 4.5) & (self.Y > 1.5)
+        # Lower bundle (Input B)
+        mask |= (np.abs(self.X + 17.5) < 4.5) & (self.Y < -1.5)
+        
+        # Transition zone
+        trans |= (np.abs(self.X + 12.0) < 6.0) & (np.abs(self.Y) < 6.0)
+        
+        return mask.astype(float), trans.astype(float)
+
+    def _create_serpentine_graphene(self):
+        y_path = 0.85*np.sin(0.72*self.X) + 0.38*np.sin(1.85*self.X) + 0.13*self.X
+        thickness = 1.85
+        mask = np.abs(self.Y - y_path) < thickness
+        mask |= np.abs(self.Y - (y_path + 0.65*np.sin(0.45*self.X))) < 0.9
+        return mask.astype(float)
+
+    def _create_hbn_output_zone(self):
+        mask = (self.X > 5.0) & (np.abs(self.Y) < 8.5)
+        return mask.astype(float)
+
+    def propagate(self, phi_A=0.0, phi_B=np.pi, amp_A=1.0, amp_B=0.58, Ef=0.45):
+        """Main propagation with Fermi level tuning"""
+        E = np.zeros((self.Ny, self.Nx), dtype=complex)
+        
+        # 1. DNA Origami Zone - 강한 phase modulation
+        phase_A = phi_A + 3.5 * np.sin(1.2 * self.Y)
+        phase_B = phi_B + 3.5 * np.sin(1.2 * self.Y + np.pi/2)
+        
+        E += amp_A * np.exp(1j * phase_A) * self.dna_mask
+        E += amp_B * np.exp(1j * phase_B) * self.dna_mask
+        
+        # 2. Transition zone
+        E *= (1.0 + 0.6j) * self.transition_mask
+        
+        # 3. Water region (realistic THz dielectric + loss)
+        E *= np.exp(-0.085 * np.abs(self.X + 5))  # adjusted loss
+        
+        # 4. Serpentine Graphene with Fermi level tuning
+        graphene_factor = (1.75 + 0.45j) * (Ef / 0.45)  # Fermi level scaling
+        E += E * self.graphene_mask * graphene_factor
+        
+        # 5. hBN Output Zone (phonon polariton)
+        E[self.hbn_mask > 0] *= (1.45 + 1.25j)
+        
+        # Global damping
+        E *= np.exp(-0.055 * np.abs(self.X) / 25)
+        
+        # Pseudospectral propagation
+        E_fft = fft2(E)
+        propagator = np.exp(-0.018 * np.sqrt(self.K2)) * np.exp(1j * 0.38 * np.sqrt(self.K2))
+        E = ifft2(E_fft * propagator)
+        
+        return E
