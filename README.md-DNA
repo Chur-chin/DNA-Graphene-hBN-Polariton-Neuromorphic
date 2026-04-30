@@ -1,0 +1,23 @@
+# DNA Origami - Graphene - hBN Hybrid Polariton Neuromorphic Platform
+
+**Wave-based functional synapse using multi-stage polariton propagation**
+
+## Concept
+DNA Origami (input patterning) → Water (propagation) → Serpentine Graphene plasmon waveguide → hBN phonon polariton output zone
+
+## Key Features
+- Dual-frequency THz input (5.0 THz + 5.8 THz)
+- Graphene Fermi level tuning (Ef = 0.2 ~ 0.6 eV) for active control
+- Strong phase modulation in DNA Origami zone
+- Multi-readout + nonlinear tanh mapping → EPSP/IPSP-like response
+- Publication-quality visualization
+
+## Results
+- Clear input-dependent interference patterns
+- Functional excitatory/inhibitory synaptic behavior
+- Active tunability via graphene Fermi level
+
+## How to Run
+```bash
+pip install -r requirements.txt
+python main_simulation.py
