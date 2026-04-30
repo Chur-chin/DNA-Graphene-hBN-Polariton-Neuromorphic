@@ -1,0 +1,2 @@
+Multi-stage Neuromorphic Synapse Modeling via Bio-Physical Hybrid (DNA-Water-Graphene-hBN) System
+This repository explores the simulation of next-generation synaptic devices by integrating DNA Origami-based phase encoding with polariton interference in 2D materials. It models the propagation of THz signals through a DNA-Water interface into a Serpentine Graphene waveguide, successfully emulating biological synaptic integration (EPSP/IPSP) via functional wave interference mapping.
