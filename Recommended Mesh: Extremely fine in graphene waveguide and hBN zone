@@ -1,0 +1,111 @@
+
+---
+
+### 2. Fermi Level Sweep 코드 (`utils/fermi_sweep.py`)
+
+```python
+"""
+Fermi Level Sweep Analysis for Multi-Stage Polariton Neuromorphic System
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+from config.parameters import Config
+from utils.wave_solver import MultiStagePolaritonSolver
+
+def run_fermi_sweep():
+    config = Config()
+    solver = MultiStagePolaritonSolver(config)
+    
+    ef_values = [0.2, 0.4, 0.45, 0.6]
+    inputs = [(0,0), (0,1), (1,0), (1,1)]
+    
+    results = {ef: {} for ef in ef_values}
+    
+    print("Starting Fermi Level Sweep...\n")
+    
+    for Ef in ef_values:
+        print(f"Running for Ef = {Ef} eV")
+        for a, b in inputs:
+            phi_A = a * np.pi
+            phi_B = b * np.pi + config.phase_bias
+            
+            # Fermi level 전달 (wave_solver propagate 함수가 Ef를 받도록 수정된 버전 가정)
+            E = solver.propagate(phi_A=phi_A, phi_B=phi_B, 
+                               amp_A=config.amp_A, amp_B=config.amp_B, Ef=Ef)
+            I = np.abs(E)**2
+            
+            # Multi-readout
+            intensities = []
+            for pos in config.readout_points:
+                ix = int((pos[0] + config.Lx/2) / config.Lx * config.Nx)
+                iy = int((pos[1] + config.Ly/2) / config.Ly * config.Ny)
+                ix = np.clip(ix, 0, config.Nx-1)
+                iy = np.clip(iy, 0, config.Ny-1)
+                intensities.append(I[iy, ix])
+            
+            avg_I = np.mean(intensities)
+            Vout = np.tanh(config.alpha * avg_I)
+            
+            results[Ef][(a,b)] = {
+                'avg_intensity': avg_I,
+                'Vout': Vout,
+                'binary': 1 if Vout > 0.5 else 0
+            }
+        
+        print(f"  Ef={Ef} completed.\n")
+    
+    # 결과 출력
+    print("="*60)
+    print("FERMI LEVEL SWEEP RESULTS")
+    print("="*60)
+    for Ef in ef_values:
+        print(f"\nEf = {Ef} eV")
+        for inp in inputs:
+            data = results[Ef][inp]
+            print(f"  Input {inp}: I={data['avg_intensity']:.4f}, Vout={data['Vout']:.3f}, Binary={data['binary']}")
+    
+    # Supplementary Figure 저장
+    Path("figures").mkdir(exist_ok=True)
+    plot_fermi_sweep_results(results, ef_values, save_path="figures/supplementary_figure_fermi_sweep.png")
+    
+    return results
+
+def plot_fermi_sweep_results(results, ef_values, save_path=None):
+    """Fermi sweep 결과 시각화"""
+    fig, axs = plt.subplots(2, 2, figsize=(14, 12))
+    axs = axs.ravel()
+    
+    inputs = [(0,0), (0,1), (1,0), (1,1)]
+    labels = ['00', '01', '10', '11']
+    
+    for i, Ef in enumerate(ef_values):
+        intensities = [results[Ef][inp]['avg_intensity'] for inp in inputs]
+        vouts = [results[Ef][inp]['Vout'] for inp in inputs]
+        
+        axs[0].bar([x + i*0.15 for x in range(4)], intensities, width=0.15, label=f'Ef={Ef}')
+        axs[1].bar([x + i*0.15 for x in range(4)], vouts, width=0.15, label=f'Ef={Ef}')
+    
+    axs[0].set_title('Average Intensity')
+    axs[1].set_title('Vout after tanh mapping')
+    axs[0].set_xticks(range(4))
+    axs[0].set_xticklabels(labels)
+    axs[1].set_xticks(range(4))
+    axs[1].set_xticklabels(labels)
+    
+    for ax in axs:
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+    
+    plt.suptitle('Fermi Level Sweep Analysis (Ef = 0.2 ~ 0.6 eV)', fontsize=16, fontweight='bold')
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Supplementary Fermi Sweep Figure saved: {save_path}")
+    
+    plt.show()
+
+if __name__ == "__main__":
+    run_fermi_sweep()
