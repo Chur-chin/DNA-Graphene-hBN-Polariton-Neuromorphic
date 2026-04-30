@@ -1,0 +1,77 @@
+
+---
+
+### 3. Temporal Summation 실험 코드  
+**파일**: `experiments/temporal_summation.py`
+
+```python
+"""
+Temporal Summation Experiment using Phase Delay (Time Difference Approximation)
+Since pseudospectral is frequency domain, we use phase delay to simulate temporal offset.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+from config.parameters import Config
+from utils.multi_input_solver import MultiInputPolaritonSolver
+
+def run_temporal_summation_experiment():
+    config = Config()
+    solver = MultiInputPolaritonSolver(config)
+    
+    print("Temporal Summation Experiment (Phase Delay Approximation)\n")
+    
+    delays = np.linspace(0, np.pi*1.8, 12)   # phase delay = time delay approximation
+    
+    results = []
+    base_phases = [np.pi, 0, np.pi, 0]       # spatial pattern fixed
+    
+    for delay in delays:
+        # Apply temporal delay to Input 3 and 4
+        phases = base_phases.copy()
+        phases[2] += delay
+        phases[3] += delay * 0.8
+        
+        E = solver.propagate(phases, amps=[1.0, 0.8, 1.0, 0.9], Ef=0.62)
+        I = np.abs(E)**2
+        hbn_mean = np.mean(I[solver.hbn_mask > 0.5])
+        
+        results.append({
+            'delay': delay,
+            'hbn_intensity': hbn_mean,
+            'vout': np.tanh(7.0 * hbn_mean)
+        })
+        
+        print(f"Delay = {delay:.3f} rad → hBN Intensity = {hbn_mean:.4f}, Vout = {results[-1]['vout']:.4f}")
+    
+    # Visualization
+    delays_deg = np.array([d*180/np.pi for d in delays])
+    intensities = [r['hbn_intensity'] for r in results]
+    vouts = [r['vout'] for r in results]
+    
+    fig, ax1 = plt.subplots(figsize=(12, 7))
+    ax1.plot(delays_deg, intensities, 'b-o', label='hBN Mean Intensity')
+    ax1.set_xlabel('Temporal Delay (degree)')
+    ax1.set_ylabel('Intensity (a.u.)', color='b')
+    ax1.tick_params(axis='y', labelcolor='b')
+    
+    ax2 = ax1.twinx()
+    ax2.plot(delays_deg, vouts, 'r-s', label='Vout (tanh)')
+    ax2.set_ylabel('Vout', color='r')
+    ax2.tick_params(axis='y', labelcolor='r')
+    
+    plt.title('Temporal Summation in Polariton Neuromorphic System\n'
+              '(Phase delay approximation)', fontsize=15, fontweight='bold')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    Path("figures").mkdir(exist_ok=True)
+    plt.savefig("figures/temporal_summation_experiment.png", dpi=300, bbox_inches='tight')
+    print("\nTemporal Summation Figure saved: figures/temporal_summation_experiment.png")
+    
+    return results
+
+
+if __name__ == "__main__":
+    run_temporal_summation_experiment()
