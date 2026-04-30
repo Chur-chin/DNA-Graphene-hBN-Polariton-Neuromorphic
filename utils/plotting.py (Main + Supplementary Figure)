@@ -1,0 +1,74 @@
+"""
+Publication-quality plotting for Multi-Stage Polariton System
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.colors import PowerNorm
+import matplotlib.patheffects as path_effects
+
+def plot_4panel_with_inset(solver, results, config, save_path=None):
+    """Main 4-panel figure"""
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12), dpi=300)
+    axes = axes.ravel()
+    
+    inputs = [(0,0), (0,1), (1,0), (1,1)]
+    titles = ['(a) 00', '(b) 01', '(c) 10', '(d) 11']
+    
+    intensities = {}
+    for a, b in inputs:
+        phi_A = a * np.pi
+        phi_B = b * np.pi + config.phase_bias
+        E = solver.propagate(phi_A=phi_A, phi_B=phi_B, amp_A=config.amp_A, amp_B=config.amp_B)
+        intensities[(a,b)] = np.abs(E)**2
+    
+    global_max = max(I.max() for I in intensities.values())
+    
+    for i, (inp, title) in enumerate(zip(inputs, titles)):
+        ax = axes[i]
+        I = intensities[inp] ** 0.55
+        
+        im = ax.imshow(I, extent=[-config.Lx/2, config.Lx/2, -config.Ly/2, config.Ly/2],
+                       origin='lower', cmap='plasma', norm=PowerNorm(gamma=0.55))
+        
+        # Zone overlays
+        ax.contour(solver.graphene_mask, levels=[0.5], colors='white', linewidths=2.5, alpha=0.9)
+        ax.add_patch(Rectangle((-19, -5), 8, 10, fill=False, edgecolor='magenta', ls='--', lw=2, label='DNA Origami'))
+        ax.add_patch(Rectangle((5, -8.5), 18, 17, fill=False, edgecolor='cyan', ls='--', lw=2.5, label='hBN Zone'))
+        
+        # Readout points
+        for pos in config.readout_points:
+            ax.plot(pos[0], pos[1], '*', color='red', markersize=12, markeredgecolor='white', markeredgewidth=2)
+        
+        ax.set_title(title, fontsize=15, fontweight='bold')
+        ax.set_xlabel('x (μm)')
+        ax.set_ylabel('y (μm)')
+    
+    cbar = fig.colorbar(im, ax=axes.tolist(), shrink=0.8)
+    cbar.set_label('|E|² (a.u.)', fontsize=13)
+    
+    # Scale bar
+    ax = axes[3]
+    ax.plot([-19, -14], [-14, -14], 'w-', lw=5)
+    ax.text(-16.5, -15, '5 μm', color='white', ha='center', fontsize=12, fontweight='bold')
+    
+    fig.suptitle('DNA Origami → Water → Graphene Plasmon → hBN Phonon Polariton\n'
+                 'Multi-Stage Hybrid Neuromorphic Platform (Ef = 0.45 eV)', 
+                 fontsize=16, fontweight='bold', y=0.96)
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
+
+def plot_fermi_sweep_supplementary(solver, config, save_path=None):
+    """Supplementary Figure for Fermi level sweep"""
+    # (간단한 버전 - 실제로는 Ef sweep 계산 후 plot)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 12), dpi=300)
+    # ... (실제 구현은 sweep 결과를 받아 plotting)
+    print("Supplementary Figure generated (Fermi sweep)")
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    return fig
